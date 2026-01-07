@@ -70,7 +70,7 @@ CONFIRMATION_DIALOG "If payloads in the main directory have been updated with gi
       rm -rf "$FAVORITE"
       cp -r "$SOURCE" "$DEST_DIR/"
 
-      LOG "🔄 Updated '$NAME'"
+      LOG "Updated '$NAME'"
     done
 
     LOG
@@ -191,4 +191,5 @@ CONFIRMATION_DIALOG "If payloads in the main directory have been updated with gi
 
 
 done
+
 
