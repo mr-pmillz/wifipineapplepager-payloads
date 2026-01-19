@@ -92,7 +92,7 @@
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-INTERFACE="wlan1"
+INTERFACE="wlan0cli"
 LOOT_DIR="/root/loot/captive_portals"
 PORTAL_DIR="/www/goodportal"
 TEMP_DIR="/tmp/clone_portal"
@@ -352,22 +352,58 @@ scan_ssids() {
     
     mkdir -p "$TEMP_DIR"
     
+    # Check if interface exists
+    if ! ip link show "$INTERFACE" >/dev/null 2>&1; then
+        LOG red "Interface $INTERFACE not found!"
+        LOG ""
+        LOG "Available interfaces:"
+        ip link show 2>/dev/null | grep -E "^[0-9]+:" | awk -F': ' '{print "  " $2}'
+        ERROR_DIALOG "Interface not found!\n\n$INTERFACE does not exist.\n\nCheck WiFi adapter."
+        return 1
+    fi
+    
+    # Check if interface is in use by another wpa_supplicant
+    if ps | grep -v grep | grep "wpa_supplicant" | grep -q "$INTERFACE"; then
+        LOG yellow "Interface $INTERFACE in use by wpa_supplicant"
+        LOG "Killing existing wpa_supplicant..."
+        for pid in $(ps | grep "wpa_supplicant" | grep "$INTERFACE" | grep -v grep | awk '{print $1}'); do
+            kill -9 "$pid" 2>/dev/null
+        done
+        sleep 1
+    fi
+    
     # Ensure interface is up and in managed mode
+    LOG "Preparing interface..."
     ip link set "$INTERFACE" down 2>/dev/null
+    sleep 1
     iw dev "$INTERFACE" set type managed 2>/dev/null
     ip link set "$INTERFACE" up 2>/dev/null
     sleep 2
     
     LOG "Scanning on $INTERFACE..."
+    START_SPINNER "Scanning for networks..."
     
     # Perform scan
     local scan_output
+    local scan_result
     scan_output=$(iw dev "$INTERFACE" scan 2>&1)
+    scan_result=$?
     
-    if [ $? -ne 0 ]; then
-        # Interface might be busy, try again
+    STOP_SPINNER
+    
+    if [ $scan_result -ne 0 ]; then
+        LOG yellow "First scan failed, retrying..."
         sleep 3
+        START_SPINNER "Retrying scan..."
         scan_output=$(iw dev "$INTERFACE" scan 2>&1)
+        scan_result=$?
+        STOP_SPINNER
+        
+        if [ $scan_result -ne 0 ]; then
+            LOG red "Scan failed: $scan_output"
+            ERROR_DIALOG "Scan failed!\n\n$INTERFACE may be busy.\n\nTry again later."
+            return 1
+        fi
     fi
     
     # Parse scan results - extract SSID, BSSID, signal, and channel

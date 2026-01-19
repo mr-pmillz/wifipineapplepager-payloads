@@ -34,7 +34,7 @@ This payload provides end-to-end automation for captive portal reconnaissance an
 
 | Phase | Description |
 |-------|-------------|
-| 1 | Scan for SSIDs using wlan1 (up to 20 networks) |
+| 1 | Scan for SSIDs using wlan0cli (up to 20 networks) |
 | 2 | User selects target network from numbered list |
 | 3 | Connect to network (open or WPA with password) |
 | 4 | Detect captive portal via standard detection URLs |
