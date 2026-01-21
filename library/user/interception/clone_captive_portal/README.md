@@ -84,7 +84,7 @@ A captive portal is detected when these URLs return a redirect (HTTP 302) or une
 Edit the following variables in `payload.sh` to customize behavior:
 
 ```bash
-INTERFACE="wlan1"        # WiFi interface for scanning/connecting
+INTERFACE="wlan0cli"        # WiFi interface for scanning/connecting
 LOOT_DIR="/root/loot/captive_portals"  # Backup location
 PORTAL_DIR="/www/goodportal"           # Portal serving directory
 TIMEOUT=15               # Connection timeout (seconds)

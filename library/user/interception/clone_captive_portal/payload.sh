@@ -161,7 +161,7 @@ restore_interface_state() {
     
     # Kill wpa_supplicant we started
     if [ -f /tmp/clone_portal_wpa.pid ]; then
-        kill $(cat /tmp/clone_portal_wpa.pid) 2>/dev/null
+        kill "$(cat /tmp/clone_portal_wpa.pid)" 2>/dev/null
         rm -f /tmp/clone_portal_wpa.pid
     fi
     
@@ -255,9 +255,12 @@ set_open_ap() {
 restore_open_ap_config() {
     if [ -f "/tmp/clone_portal_backup_ssid" ]; then
         LOG "Restoring Open AP config..."
-        local orig_ssid=$(cat /tmp/clone_portal_backup_ssid)
-        local orig_mac=$(cat /tmp/clone_portal_backup_mac 2>/dev/null)
-        local orig_disabled=$(cat /tmp/clone_portal_backup_disabled 2>/dev/null)
+        local orig_ssid
+        local orig_mac
+        local orig_disabled
+        orig_ssid=$(cat /tmp/clone_portal_backup_ssid)
+        orig_mac=$(cat /tmp/clone_portal_backup_mac 2>/dev/null)
+        orig_disabled=$(cat /tmp/clone_portal_backup_disabled 2>/dev/null)
         
         [ -n "$orig_ssid" ] && uci set wireless.wlan0open.ssid="$orig_ssid"
         [ -n "$orig_mac" ] && uci set wireless.wlan0open.macaddr="$orig_mac"
@@ -337,12 +340,6 @@ sanitize_ssid() {
     echo "$ssid" | tr -cs 'a-zA-Z0-9_-' '_' | sed 's/_*$//' | head -c 50
 }
 
-# Get PHY for interface
-get_phy() {
-    local iface=$1
-    iw dev "$iface" info 2>/dev/null | awk '/wiphy/ {print "phy" $2}'
-}
-
 # =============================================================================
 # PHASE 1: SCAN FOR SSIDS
 # =============================================================================
@@ -381,7 +378,8 @@ scan_ssids() {
     sleep 2
     
     LOG "Scanning on $INTERFACE..."
-    START_SPINNER "Scanning for networks..."
+    local spinner_id
+    spinner_id=$(START_SPINNER "Scanning for networks...")
     
     # Perform scan
     local scan_output
@@ -389,15 +387,15 @@ scan_ssids() {
     scan_output=$(iw dev "$INTERFACE" scan 2>&1)
     scan_result=$?
     
-    STOP_SPINNER
+    STOP_SPINNER "$spinner_id"
     
     if [ $scan_result -ne 0 ]; then
         LOG yellow "First scan failed, retrying..."
         sleep 3
-        START_SPINNER "Retrying scan..."
+        spinner_id=$(START_SPINNER "Retrying scan...")
         scan_output=$(iw dev "$INTERFACE" scan 2>&1)
         scan_result=$?
-        STOP_SPINNER
+        STOP_SPINNER "$spinner_id"
         
         if [ $scan_result -ne 0 ]; then
             LOG red "Scan failed: $scan_output"
@@ -454,7 +452,8 @@ scan_ssids() {
         }
     }' | sort -t'|' -k1 -nr | head -n $MAX_SSIDS > "$TEMP_DIR/ssids.txt"
     
-    local ssid_count=$(wc -l < "$TEMP_DIR/ssids.txt" 2>/dev/null || echo "0")
+    local ssid_count
+    ssid_count=$(wc -l < "$TEMP_DIR/ssids.txt" 2>/dev/null || echo "0")
     LOG "Found $ssid_count networks"
     
     if [ "$ssid_count" -eq 0 ]; then
@@ -1068,15 +1067,15 @@ if [ -n "$MISSING_DEPS" ]; then
     if [ "$resp" = "$DUCKYSCRIPT_USER_CONFIRMED" ]; then
         LOG ""
         LOG "Updating package lists..."
-        START_SPINNER "Updating opkg..."
+        opkg_spinner=$(START_SPINNER "Updating opkg...")
         opkg update >/dev/null 2>&1
-        STOP_SPINNER
+        STOP_SPINNER "$opkg_spinner"
         
         for pkg in $MISSING_PKGS; do
             LOG "Installing $pkg..."
-            START_SPINNER "Installing $pkg..."
+            pkg_spinner=$(START_SPINNER "Installing $pkg...")
             opkg install "$pkg" >/dev/null 2>&1
-            STOP_SPINNER
+            STOP_SPINNER "$pkg_spinner"
             
             if opkg list-installed | grep -q "^${pkg} "; then
                 LOG green "  Installed: $pkg"
